@@ -5,7 +5,7 @@ setup(name='modelling',
     description='modelling package',
     author='rruizendaal',
     url='https://github.com/ruizendaalr/modelling',
-    packages=['modelling'],
+    packages=['train'],
     install_requires=[
         'numpy',
         'pandas'
