@@ -59,7 +59,7 @@ def duplicate_testset(testset,mileage_range,duration_range,splitting_variable,sp
     
     # Merge the list of duplicated observations back to the rest of the variables that match the unique observations
     duplicated_testset=pd.merge(duplicated_columns,testset_clean,left_on='index_id',right_on=testset_clean.index, how='left')
-    del duplicated_testset['index_id','split_var']
+    duplicated_testset = duplicated_testset.drop(['index_id', 'split_var'], axis=1)
     
     return duplicated_testset
 
