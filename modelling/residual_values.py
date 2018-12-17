@@ -3,6 +3,13 @@ Contains functionality specific for the RV project
 """
 
 import numpy as np
+import pandas as pd
+from statistics import mean
+import os
+import pandas as pd
+import numpy as np
+from itertools import product
+
 
 def mape(y_true, y_pred):
     """"
@@ -12,19 +19,7 @@ def mape(y_true, y_pred):
     return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
 
-def duplicate_testset(testset, mileage_range, duration_range, splitting_variable, splitting_values):
-
-    import pandas as pd
-    from itertools import product
-    
-    testset_nomileage_noduration = testset.drop(['mileage','duration','make_model',splitting_variable],axis=1)
-    
-    duplicated_columns = pd.DataFrame(list(product(testset['sf_objectid'],mileage_range, duration_range,splitting_values)), columns=['sf_objectid','mileage', 'duration',splitting_variable])
-    duplicated_testset=pd.merge(duplicated_columns,testset_nomileage_noduration,on='sf_objectid',how='left')
-    
-    return duplicated_testset
-
-def duplicate_testset(testset, mileage_range, duration_range, splitting_variable, splitting_values):
+def duplicate_testset(testset,mileage_range,duration_range,splitting_variable,splitting_values):
     
     """
     
@@ -49,26 +44,29 @@ def duplicate_testset(testset, mileage_range, duration_range, splitting_variable
         The duplicated testset
     
     """
-
-
-    import pandas as pd
-    from itertools import product
     
     # Remove the variables that need to be duplicated from the testset
-    testset_clean = testset.drop(['mileage','duration',splitting_variable],axis=1)
+    testset_clean = testset.drop(['mileage','duration'],axis=1)
+    for value in splitting_values:
+        splitting_varname = splitting_variable+'_'+value
+        testset_clean = testset_clean.drop([splitting_varname],axis=1)
     
     # Create a list of all possible combinations of the unique observations, durations, mileages and splitting values
-    duplicated_columns = pd.DataFrame(list(product(testset.index,mileage_range, duration_range,splitting_values)), columns=['index_id','mileage', 'duration',splitting_variable])
+    duplicated_columns = pd.DataFrame(list(product(testset.index,mileage_range, duration_range,splitting_values)), columns=['index_id','mileage', 'duration','split_var'])
+    for value in splitting_values:
+        splitting_varname = splitting_variable+'_'+value
+        duplicated_columns[splitting_varname] = np.where(duplicated_columns['split_var'] == value, 1, 0)
     
     # Merge the list of duplicated observations back to the rest of the variables that match the unique observations
     duplicated_testset=pd.merge(duplicated_columns,testset_clean,left_on='index_id',right_on=testset_clean.index, how='left')
-    del duplicated_testset['index_id']
+    del duplicated_testset['index_id','split_var']
     
     return duplicated_testset
 
 
 
-def duplicated_testset_to_matrix(duplicated_testset_predicted, min_matrix_size, splitting_variable, saving_directory):
+
+def duplicated_testset_to_matrix(duplicated_testset_predicted,min_matrix_size,splitting_variable,splitting_values,saving_directory):
 
     """
     
@@ -82,17 +80,18 @@ def duplicated_testset_to_matrix(duplicated_testset_predicted, min_matrix_size, 
         Minimum size of a make_model in the testset to be assigned a separate matrix
     splitting_variable: str
         The name of the variable on which the matrices should be split for all make_models
+    splitting_values: list
+        The values that occur in the splitting variable that should be used for splitting
     saving_directory: str
         Path to the directory in which the matrices should be saved
     
     """
     
-    import numpy as np
-    import pandas as pd
-    from statistics import mean
-    import os
-    
     # Remove unnecessary variables to increase performance
+    dummies=list()
+    for value in splitting_values:
+        dummies.append(splitting_variable+'_'+value)
+    duplicated_testset_predicted[splitting_variable] = duplicated_testset_predicted[dummies].idxmax(axis=1)
     duplicated_testset_clean = duplicated_testset_predicted[['make','model_cons','mileage','duration','pred','van',splitting_variable]]
     
     # Count the size of each make_model in the testset and add this as a variable to each observation
@@ -103,7 +102,6 @@ def duplicated_testset_to_matrix(duplicated_testset_predicted, min_matrix_size, 
     #Find the mileage range, duration range and splitting values used in duplication
     mileage=sorted(duplicated_testset_clean.mileage.unique())
     duration=sorted(duplicated_testset_clean.duration.unique())
-    splitting_values = sorted(duplicated_testset_clean[splitting_variable].unique())
     
     # Compare each make_model size to the minimal matrix size and decide in which matrix observations should go
     min_matrix_size_duplicated = min_matrix_size*len(mileage)*len(duration)*len(splitting_values)
@@ -136,7 +134,7 @@ def duplicated_testset_to_matrix(duplicated_testset_predicted, min_matrix_size, 
     
     # Write the matrices to a single excel file, with every sheet containing one make_model
     os.chdir(saving_directory)
-    writer=pd.ExcelWriter('RVmatricesV0.91.xlsx',engine='xlsxwriter')
+    writer=pd.ExcelWriter('RVmatricesV0.95.xlsx',engine='xlsxwriter')
     workbook=writer.book
     bold = workbook.add_format({'bold': True})
     for matrix in listmatrices:
@@ -144,6 +142,8 @@ def duplicated_testset_to_matrix(duplicated_testset_predicted, min_matrix_size, 
         split_order = 0
         for split_value in splitting_values:
             carname = carname.replace(split_value, '')
+            carname = carname.replace(splitting_variable, '')
+            carname = carname.replace('_', '')
             if split_value in matrix:
                 start_row = 1 + split_order * (len(mileage) + 4)
             split_order += 1
