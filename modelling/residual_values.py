@@ -88,10 +88,10 @@ def duplicated_testset_to_matrix(duplicated_testset_predicted,min_matrix_size,sp
     """
     
     # Remove unnecessary variables to increase performance
-    #dummies=list()
-    #for value in splitting_values:
-    #    dummies.append(splitting_variable+'_'+value)
-    #duplicated_testset_predicted[splitting_variable] = duplicated_testset_predicted[dummies].idxmax(axis=1)
+    dummies=list()
+    for value in splitting_values:
+        dummies.append(splitting_variable+'_'+value)
+    duplicated_testset_predicted[splitting_variable] = duplicated_testset_predicted[dummies].idxmax(axis=1)
 
     duplicated_testset_clean = duplicated_testset_predicted[['make','model_cons','mileage','duration','pred','van',splitting_variable]]
     
